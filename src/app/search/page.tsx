@@ -5,9 +5,10 @@ import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import GalleryCard from "../../components/GalleryCard";
 import { galleryImages } from "../../data/galleryImages";
 import Navbar from "../../components/Navbar";
-import { Quicksand } from "next/font/google";
+import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 
-const quicksand = Quicksand({ subsets: ["latin"], weight: ["700"] });
+const playfair = Playfair_Display({ subsets: ["latin"], style: ["italic", "normal"] });
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"] });
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -88,28 +89,34 @@ function SearchContent() {
   const headerText = q ? `Results for "${q}"` : category ? `Category: ${category.charAt(0).toUpperCase() + category.slice(1)}` : "All Categories";
 
   return (
-    <main className="min-h-screen bg-[color:var(--color-background)] pt-24 pb-12">
-      {/* We need to render the Navbar here since the main layout might not have it if it's customized, 
-          but actually Next.js root layout probably has it. Wait, the main page has Navbar inside it.
-          Let's include Navbar so it's visible. */}
+    <main className={`min-h-screen bg-[color:var(--color-background)] pt-24 pb-12 ${jakarta.className}`}>
       <Navbar />
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-6">
         
         {/* Header & Local Search Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 mt-8 space-y-6 md:space-y-0">
-          <div className="text-center md:text-left">
-            <h1 className={`text-4xl md:text-5xl font-bold text-[color:var(--color-text)] mb-4 ${quicksand.className}`}>
-              {headerText}
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 mt-12 space-y-8 md:space-y-0">
+          <div className="text-center md:text-left space-y-4">
+            <span className="text-[color:var(--color-primary)] font-bold tracking-[0.3em] uppercase text-[10px]">
+              {category || q ? "Refining Archive" : "Lens.ke Archive"}
+            </span>
+            <h1 className={`text-4xl md:text-6xl font-bold text-[color:var(--color-text)] tracking-tight ${playfair.className}`}>
+              {q ? (
+                <>Search: <span className="italic font-normal text-gray-400">"{q}"</span></>
+              ) : category ? (
+                <>Category: <span className="italic font-normal text-[color:var(--color-primary)]">{category.charAt(0).toUpperCase() + category.slice(1)}</span></>
+              ) : (
+                <>All <span className="italic font-normal text-gray-400">Collections</span></>
+              )}
             </h1>
-            <p className="text-gray-500 text-lg">
-              {isLoading ? "Searching..." : `${filteredImages.length} premium images found`}
+            <p className="text-gray-400 text-sm tracking-widest uppercase font-medium">
+              {isLoading ? "Analyzing Archive..." : `${filteredImages.length} High-Resolution Entries`}
             </p>
           </div>
           
           <div className="w-full md:w-auto flex justify-center md:justify-end">
             <form 
-              className="relative w-full md:w-[450px]"
+              className="relative w-full md:w-[450px] group"
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
@@ -119,9 +126,9 @@ function SearchContent() {
                 }
               }}
             >
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+              <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[color:var(--color-primary)] transition-colors">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
               <input
@@ -129,32 +136,31 @@ function SearchContent() {
                 type="text"
                 defaultValue={q || ""}
                 placeholder="Search within gallery..."
-                className="w-full pl-11 pr-4 py-3 rounded-full text-sm font-medium border border-gray-200 focus:border-[color:var(--color-primary)] focus:ring-1 focus:ring-[color:var(--color-primary)] outline-none transition-all shadow-sm"
+                className="w-full pl-14 pr-6 py-4 rounded-xl text-sm font-medium border border-gray-100 bg-white/50 focus:bg-white focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--color-primary)]/5 outline-none transition-all shadow-sm"
               />
             </form>
           </div>
         </div>
 
         {/* Filters / Chips & Filter Button */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 pb-2 space-y-4 sm:space-y-0 border-b border-gray-100/50 relative">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 pb-4 space-y-6 sm:space-y-0 border-b border-gray-100">
           
-          {/* Scrollable Chips Container with Indicator */}
-          <div className="relative flex-1 min-w-0 sm:mr-4 w-full">
+          {/* Scrollable Chips Container */}
+          <div className="relative flex-1 min-w-0 sm:mr-8 w-full">
             <div 
               ref={scrollContainerRef}
-              className="flex overflow-x-auto space-x-3 hide-scrollbar scroll-smooth pr-16" 
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              className="flex overflow-x-auto space-x-2 hide-scrollbar scroll-smooth pr-20" 
             >
-              {["All", "Wildlife", "Coastal", "City", "Culture", "Nature", "Abstract", "Architecture", "Aerial", "People", "Travel", "Fashion", "Sports", "Technology", "Food"].map((chip) => {
+              {["All", "Wildlife", "Coastal", "City", "Culture", "Nature", "Abstract", "Architecture", "Aerial", "People", "Heritage", "Street", "Landscapes", "Portraits", "Travel", "Fashion", "Sports", "Technology", "Food", "Festivals", "Daily Life"].map((chip) => {
                 const isSelected = category?.toLowerCase() === chip.toLowerCase() || (!category && !q && chip === "All");
                 return (
                   <a
                     key={chip}
                     href={chip === "All" ? "/search" : `/search?category=${chip.toLowerCase()}`}
-                    className={`whitespace-nowrap px-6 py-2 rounded-full text-sm font-medium transition-colors ${
+                    className={`whitespace-nowrap px-6 py-2.5 text-[11px] font-bold tracking-[0.15em] uppercase transition-all border rounded-lg ${
                       isSelected 
-                        ? "bg-[color:var(--color-primary)] text-white shadow-md" 
-                        : "bg-white text-gray-600 border border-gray-200 hover:border-[color:var(--color-primary)] hover:text-[color:var(--color-primary)]"
+                        ? "bg-[color:var(--color-primary)] border-[color:var(--color-primary)] text-white shadow-lg shadow-[color:var(--color-primary)]/20" 
+                        : "bg-white text-gray-400 border-gray-100 hover:border-[color:var(--color-primary)] hover:text-[color:var(--color-primary)]"
                     }`}
                   >
                     {chip}
@@ -171,10 +177,10 @@ function SearchContent() {
                     scrollContainerRef.current.scrollBy({ left: 300, behavior: 'smooth' });
                   }
                 }}
-                className="bg-white/90 backdrop-blur-sm rounded-full p-1.5 shadow-md text-gray-500 hover:text-[color:var(--color-primary)] hover:scale-110 transition-all pointer-events-auto cursor-pointer focus:outline-none"
+                className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg text-gray-400 hover:text-[color:var(--color-primary)] transition-all pointer-events-auto border border-gray-50"
                 aria-label="Scroll right"
               >
-                <svg className="w-5 h-5 animate-pulse hover:animate-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
           </div>
@@ -182,12 +188,12 @@ function SearchContent() {
           <div className="relative">
             <button 
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors whitespace-nowrap bg-white shadow-sm font-medium text-sm ${
-                isFilterOpen ? "border-[color:var(--color-primary)] text-[color:var(--color-primary)]" : "border-gray-200 text-gray-700 hover:text-[color:var(--color-primary)] hover:border-[color:var(--color-primary)]"
+              className={`flex items-center space-x-3 px-6 py-3 border rounded-xl transition-all whitespace-nowrap bg-white shadow-sm text-xs font-bold tracking-widest uppercase ${
+                isFilterOpen ? "border-[color:var(--color-primary)] text-[color:var(--color-primary)] ring-4 ring-[color:var(--color-primary)]/5" : "border-gray-100 text-gray-500 hover:text-[color:var(--color-primary)] hover:border-[color:var(--color-primary)]"
               }`}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-              <span>Filters</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+              <span>Refine Results</span>
             </button>
 
             {/* Filter Dropdown */}
@@ -289,29 +295,32 @@ function SearchContent() {
           </div>
         ) : (
           /* Empty State */
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex flex-col items-center justify-center py-40 text-center animate-in fade-in duration-700">
+            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-8 border border-gray-100">
+              <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-[color:var(--color-text)] mb-3">No results found</h2>
-            <p className="text-gray-500 max-w-md mb-8">
-              We couldn't find any images matching your search. Try checking your spelling or using more general terms.
+            <h2 className={`text-3xl md:text-4xl font-bold text-[color:var(--color-text)] mb-4 ${playfair.className}`}>
+              No matching <span className="italic text-gray-400">entries</span> found
+            </h2>
+            <p className="text-gray-400 max-w-sm mb-10 font-light tracking-wide">
+              Our archive doesn't currently contain images matching your specific criteria. 
             </p>
             <a 
               href="/search"
-              className="px-8 py-3 bg-[color:var(--color-primary)] text-white rounded-full font-semibold hover:bg-green-800 transition-colors shadow-lg"
+              className="px-10 py-4 bg-[color:var(--color-primary)] text-white rounded-full font-bold hover:bg-green-800 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 text-sm tracking-widest uppercase"
             >
-              Browse All Categories
+              Reset Archive
             </a>
           </div>
         )}
 
         {/* Loading Spinner for Infinite Scroll */}
         {!isLoading && displayedImages.length > 0 && (
-          <div className="w-full py-12 flex justify-center">
-            <div className="w-8 h-8 border-4 border-gray-200 border-t-[color:var(--color-primary)] rounded-full animate-spin"></div>
+          <div className="w-full py-20 flex flex-col items-center space-y-4">
+             <div className="w-6 h-6 border-2 border-gray-100 border-t-[color:var(--color-primary)] rounded-full animate-spin"></div>
+             <span className="text-[10px] font-bold tracking-[0.2em] text-gray-300 uppercase">Indexing more results</span>
           </div>
         )}
 

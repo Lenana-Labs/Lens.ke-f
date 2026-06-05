@@ -23,10 +23,10 @@ body {
 /* Base Utility Classes */
 
 .glass {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.20);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .glass-nav {

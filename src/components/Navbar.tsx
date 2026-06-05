@@ -95,7 +95,7 @@ export default function Navbar() {
             </div>
           </div>
 
-          <Link href="/login" className="text-[color:var(--color-text)] font-medium hover:text-[color:var(--color-primary)] transition-colors">
+          <Link href="/auth" className="text-[color:var(--color-text)] font-medium hover:text-[color:var(--color-primary)] transition-colors">
             Log In
           </Link>
           

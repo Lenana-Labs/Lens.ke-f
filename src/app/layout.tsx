@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "../context/CartContext";
+import { Toaster } from "sonner";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -34,6 +35,7 @@ export default function RootLayout({
         <CartProvider>
           {children}
         </CartProvider>
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );
