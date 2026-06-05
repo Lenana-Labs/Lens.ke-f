@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 // Define public routes that don't require authentication
 const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/auth'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Check if it's a public path or an exact match
