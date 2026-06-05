@@ -50,10 +50,60 @@ export default function AuthForm() {
     return "Strong";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(isLogin ? "Logging in..." : "Signing up...");
+    
+    // 1. Choose the correct endpoint from your .env file
+    const endpoint = isLogin 
+      ? process.env.NEXT_PUBLIC_LOGIN 
+      : process.env.NEXT_PUBLIC_REGISTER;
+      
+    // Get the base URL from .env, default to an empty string if not provided
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
+
+    if (!endpoint) {
+      console.error("Missing API endpoint in environment variables!");
+      return;
+    }
+    const fullUrl = `${baseUrl}${endpoint}`;
+
+    try {
+      const payload = {
+        email,
+        password,
+        ...(!isLogin && { firstName, lastName, phone }) 
+      };
+
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      // Check if the response is actually JSON before parsing to prevent crashes
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json();
+        if (response.ok) {
+          console.log(isLogin ? "Login successful:" : "Registration successful:", data);
+        } else {
+          console.error("Authentication failed:", data);
+        }
+      } else {
+        // The server returned something that isn't JSON (like a 404 HTML page)
+        const textData = await response.text();
+        console.error(`Server responded with non-JSON format (${response.status}):`, textData);
+      }
+    } catch (error) {
+      console.error("A network error occurred:", error);
+    }
   };
+
+
+
+
 
   return (
     <div className="w-full max-w-md mx-auto relative z-10 animate-fade-in-up">
