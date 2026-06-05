@@ -120,6 +120,8 @@ export default function ContributorDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [photosView, setPhotosView] = useState<"grid" | "list">("grid");
   const [photosList, setPhotosList] = useState<Photo[]>(initialMockPhotos);
+  const [portfolioFilter, setPortfolioFilter] = useState<"All" | "Active" | "Pending" | "Rejected">("All");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Scroll Refs for Earnings
   const txnScrollRef = useRef<HTMLDivElement>(null);
@@ -672,14 +674,45 @@ export default function ContributorDashboard() {
           {/* ---- MY PHOTOS TAB ---- */}
           {activeNav === "photos" && (
             <div className="space-y-6 animate-fade-in-up">
-              {/* Header Row: Filters + View Toggle */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-                  {["All", "Active", "Pending", "Rejected"].map((filter) => (
-                    <button key={filter} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${filter === "All" ? "bg-[color:var(--color-primary)] text-white" : "bg-white border border-gray-200/80 text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}>
-                      {filter}
-                    </button>
-                  ))}
+              {/* Header Row: Filters + Search + View Toggle */}
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1">
+                  {/* Status Filter Pills */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                    {["All", "Active", "Pending", "Rejected"].map((filter) => (
+                      <button 
+                        key={filter} 
+                        onClick={() => setPortfolioFilter(filter as any)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
+                          portfolioFilter === filter 
+                            ? "bg-[color:var(--color-primary)] text-white border-[color:var(--color-primary)] shadow-sm" 
+                            : "bg-white border-gray-200/80 text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                        }`}
+                      >
+                        {filter}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative w-full sm:w-64">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Search photo, location, tags..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-[color:var(--color-text)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-primary)]/20 focus:border-[color:var(--color-primary)] transition-all text-xs"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 {/* View Toggle */}
@@ -701,96 +734,135 @@ export default function ContributorDashboard() {
                 </div>
               </div>
 
-              {photosView === "grid" ? (
-                /* Grid View */
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {photosList.map((photo) => (
-                    <div key={photo.id} onClick={() => openDrawer(photo)} className="group relative rounded-2xl overflow-hidden bg-white border border-gray-200/80 shadow-sm cursor-pointer">
-                      <div className="aspect-square relative">
-                        <Image src={photo.src} alt={photo.alt} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="25vw" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-4">
-                          <div className="flex items-center gap-4 text-white">
-                            <div className="flex flex-col items-center">
-                              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                              <span className="text-xs font-bold mt-1">{photo.downloads}</span>
-                            </div>
-                            <div className="flex flex-col items-center">
-                              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                              <span className="text-xs font-bold mt-1">{(photo.views / 1000).toFixed(1)}k</span>
-                            </div>
-                            <div className="flex flex-col items-center text-[color:var(--color-primary)]">
-                              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                              <span className="text-xs font-bold mt-1">{photo.earnings}</span>
+              {(() => {
+                const filteredPhotos = photosList.filter(photo => {
+                  // 1. Status Filter
+                  if (portfolioFilter !== "All" && photo.status !== portfolioFilter.toLowerCase()) {
+                    return false;
+                  }
+                  // 2. Search Query Filter
+                  if (searchQuery.trim()) {
+                    const q = searchQuery.toLowerCase().trim();
+                    const matchesAlt = photo.alt.toLowerCase().includes(q);
+                    const matchesLoc = photo.location.toLowerCase().includes(q);
+                    const matchesTags = photo.tags.some(t => t.toLowerCase().includes(q));
+                    return matchesAlt || matchesLoc || matchesTags;
+                  }
+                  return true;
+                });
+
+                if (filteredPhotos.length === 0) {
+                  return (
+                    <div className="py-20 text-center bg-white border border-gray-200/80 rounded-2xl flex flex-col items-center justify-center gap-4 shadow-sm">
+                      <span className="text-4xl">📸</span>
+                      <div>
+                        <p className="text-[color:var(--color-text)] font-bold text-base">No photographs found</p>
+                        <p className="text-gray-400 text-xs mt-1">Try adjusting your filters or search terms, or upload a new photo.</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setPortfolioFilter("All");
+                          setSearchQuery("");
+                        }}
+                        className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all"
+                      >
+                        Reset Filters
+                      </button>
+                    </div>
+                  );
+                }
+
+                return photosView === "grid" ? (
+                  /* Grid View */
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {filteredPhotos.map((photo) => (
+                      <div key={photo.id} onClick={() => openDrawer(photo)} className="group relative rounded-2xl overflow-hidden bg-white border border-gray-200/80 shadow-sm cursor-pointer">
+                        <div className="aspect-square relative">
+                          <Image src={photo.src} alt={photo.alt} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="25vw" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-4">
+                            <div className="flex items-center gap-4 text-white">
+                              <div className="flex flex-col items-center">
+                                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                <span className="text-xs font-bold mt-1">{photo.downloads}</span>
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                <span className="text-xs font-bold mt-1">{(photo.views / 1000).toFixed(1)}k</span>
+                              </div>
+                              <div className="flex flex-col items-center text-[color:var(--color-primary)]">
+                                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span className="text-xs font-bold mt-1">{photo.earnings}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="absolute top-3 right-3">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full backdrop-blur-sm ${photo.status === "active" ? "bg-green-900/50 text-green-300" : photo.status === "rejected" ? "bg-red-900/50 text-red-300" : "bg-yellow-900/50 text-yellow-300"}`}>
-                            {photo.status}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="p-3">
-                        <p className="text-sm font-semibold text-[color:var(--color-text)] truncate">{photo.alt}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {/* Upload CTA card */}
-                  <button onClick={() => setActiveNav("upload")} className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-[color:var(--color-primary)] hover:border-[color:var(--color-primary)]/30 transition-all hover:bg-[color:var(--color-primary)]/5">
-                    <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    <span className="text-xs font-bold">Upload New</span>
-                  </button>
-                </div>
-              ) : (
-                /* List View */
-                <div className="space-y-3">
-                  {photosList.map((photo) => (
-                    <div key={photo.id} onClick={() => openDrawer(photo)} className="group flex items-center justify-between p-3 bg-white border border-gray-200/80 rounded-2xl shadow-sm hover:border-[color:var(--color-primary)]/30 transition-all cursor-pointer">
-                      <div className="flex items-center gap-4">
-                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0">
-                          <Image src={photo.src} alt={photo.alt} fill className="object-cover" sizes="80px" />
-                        </div>
-                        <div>
-                          <h3 className={`font-bold ${playfair.className} text-xl text-[color:var(--color-text)] group-hover:text-[color:var(--color-primary)] transition-colors line-clamp-1`}>{photo.alt}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${photo.status === "active" ? "bg-green-50 text-green-600" : photo.status === "rejected" ? "bg-red-50 text-red-600" : "bg-yellow-50 text-yellow-600"}`}>
+                          <div className="absolute top-3 right-3">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full backdrop-blur-sm ${photo.status === "active" ? "bg-green-900/50 text-green-300" : photo.status === "rejected" ? "bg-red-900/50 text-red-300" : "bg-yellow-900/50 text-yellow-300"}`}>
                               {photo.status}
                             </span>
-                            <span className="text-xs text-gray-400 hidden sm:inline">Uploaded Oct 12, 2023</span>
                           </div>
                         </div>
+                        <div className="p-3">
+                          <p className={`text-base font-bold ${playfair.className} text-[color:var(--color-text)] truncate`}>{photo.alt}</p>
+                        </div>
                       </div>
-                      
-                      <div className="flex items-center gap-6 sm:gap-10 pr-2 sm:pr-6">
-                        <div className="hidden sm:flex items-center gap-6 text-sm text-gray-400">
-                          <div className="text-center w-16">
-                            <p className="text-[color:var(--color-text)] font-bold text-base">{photo.downloads}</p>
-                            <p className="text-[10px] uppercase tracking-wider font-semibold">Downs</p>
+                    ))}
+                    {/* Upload CTA card */}
+                    <button onClick={() => setActiveNav("upload")} className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-[color:var(--color-primary)] hover:border-[color:var(--color-primary)]/30 transition-all hover:bg-[color:var(--color-primary)]/5">
+                      <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                      <span className="text-xs font-bold">Upload New</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* List View */
+                  <div className="space-y-3">
+                    {filteredPhotos.map((photo) => (
+                      <div key={photo.id} onClick={() => openDrawer(photo)} className="group flex items-center justify-between p-3 bg-white border border-gray-200/80 rounded-2xl shadow-sm hover:border-[color:var(--color-primary)]/30 transition-all cursor-pointer">
+                        <div className="flex items-center gap-4">
+                          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0">
+                            <Image src={photo.src} alt={photo.alt} fill className="object-cover" sizes="80px" />
                           </div>
-                          <div className="text-center w-16">
-                            <p className="text-[color:var(--color-text)] font-bold text-base">{(photo.views / 1000).toFixed(1)}k</p>
-                            <p className="text-[10px] uppercase tracking-wider font-semibold">Views</p>
-                          </div>
-                          <div className="text-center w-20">
-                            <p className="text-[color:var(--color-primary)] font-bold text-base">KES {photo.earnings}</p>
-                            <p className="text-[10px] uppercase tracking-wider font-semibold">Earned</p>
+                          <div>
+                            <h3 className={`font-bold ${playfair.className} text-xl text-[color:var(--color-text)] group-hover:text-[color:var(--color-primary)] transition-colors line-clamp-1`}>{photo.alt}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${photo.status === "active" ? "bg-green-50 text-green-600" : photo.status === "rejected" ? "bg-red-50 text-red-600" : "bg-yellow-50 text-yellow-600"}`}>
+                                {photo.status}
+                              </span>
+                              <span className="text-xs text-gray-400 hidden sm:inline">Uploaded {photo.uploadedAt}</span>
+                            </div>
                           </div>
                         </div>
                         
-                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-300 group-hover:text-[color:var(--color-primary)] transition-colors transform group-hover:translate-x-1">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
+                        <div className="flex items-center gap-6 sm:gap-10 pr-2 sm:pr-6">
+                          <div className="hidden sm:flex items-center gap-6 text-sm text-gray-400">
+                            <div className="text-center w-16">
+                              <p className="text-[color:var(--color-text)] font-bold text-base">{photo.downloads}</p>
+                              <p className="text-[10px] uppercase tracking-wider font-semibold">Downs</p>
+                            </div>
+                            <div className="text-center w-16">
+                              <p className="text-[color:var(--color-text)] font-bold text-base">{(photo.views / 1000).toFixed(1)}k</p>
+                              <p className="text-[10px] uppercase tracking-wider font-semibold">Views</p>
+                            </div>
+                            <div className="text-center w-20">
+                              <p className="text-[color:var(--color-primary)] font-bold text-base">KES {photo.earnings}</p>
+                              <p className="text-[10px] uppercase tracking-wider font-semibold">Earned</p>
+                            </div>
+                          </div>
+                          
+                          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-300 group-hover:text-[color:var(--color-primary)] transition-colors transform group-hover:translate-x-1">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  
-                  {/* Upload CTA Row */}
-                  <button onClick={() => setActiveNav("upload")} className="w-full flex items-center justify-center gap-3 p-5 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:text-[color:var(--color-primary)] hover:border-[color:var(--color-primary)]/30 transition-all hover:bg-[color:var(--color-primary)]/5">
-                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    <span className="text-sm font-bold">Upload New Photo</span>
-                  </button>
-                </div>
-              )}
+                    ))}
+                    
+                    {/* Upload CTA Row */}
+                    <button onClick={() => setActiveNav("upload")} className="w-full flex items-center justify-center gap-3 p-5 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:text-[color:var(--color-primary)] hover:border-[color:var(--color-primary)]/30 transition-all hover:bg-[color:var(--color-primary)]/5">
+                      <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                      <span className="text-sm font-bold">Upload New Photo</span>
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
