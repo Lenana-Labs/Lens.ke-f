@@ -122,6 +122,8 @@ export default function ContributorDashboard() {
   const [photosList, setPhotosList] = useState<Photo[]>(initialMockPhotos);
   const [portfolioFilter, setPortfolioFilter] = useState<"All" | "Active" | "Pending" | "Rejected">("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [portfolioSort, setPortfolioSort] = useState<"uploadedAt" | "downloads" | "views" | "earnings">("uploadedAt");
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
 
   // Scroll Refs for Earnings
   const txnScrollRef = useRef<HTMLDivElement>(null);
@@ -253,12 +255,28 @@ export default function ContributorDashboard() {
 
   const handleSavePhotoDetails = () => {
     if (!selectedPhoto) return;
+    const isResubmitting = selectedPhoto.status === "rejected";
     setPhotosList(prev => prev.map(p => 
       p.id === selectedPhoto.id 
-        ? { ...p, alt: drawerTitle, description: drawerDesc, location: drawerLocation, tags: drawerTags }
+        ? { 
+            ...p, 
+            alt: drawerTitle, 
+            description: drawerDesc, 
+            location: drawerLocation, 
+            tags: drawerTags,
+            status: isResubmitting ? "pending" : p.status
+          }
         : p
     ));
-    toast.success("Changes Saved", { description: `Updates to '${drawerTitle}' have been saved.` });
+    if (isResubmitting) {
+      toast.success("Changes Saved & Resubmitted", { 
+        description: `"${drawerTitle}" has been resubmitted for approval.` 
+      });
+    } else {
+      toast.success("Changes Saved", { 
+        description: `Updates to '${drawerTitle}' have been saved.` 
+      });
+    }
     setSelectedPhoto(null);
   };
 
@@ -455,6 +473,24 @@ export default function ContributorDashboard() {
         if (prev >= 100) {
           clearInterval(interval);
           setTimeout(() => {
+            // Add new photo item to the dashboard portfolio
+            const newPhoto: Photo = {
+              id: `g-${Date.now()}`,
+              src: previewUrl || "/images/gallery/savannah_green.png",
+              alt: uploadTitle,
+              downloads: 0,
+              views: 0,
+              earnings: 0,
+              status: "pending",
+              description: uploadDesc || "No description provided.",
+              location: uploadLocation,
+              camera: uploadCamera || "Standard Camera",
+              category: uploadCategory || "General",
+              tags: selectedTags.length > 0 ? selectedTags : ["photography"],
+              uploadedAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            };
+            setPhotosList(prev => [newPhoto, ...prev]);
+
             toast.success("Submission Successful!", {
               description: `"${uploadTitle}" has been submitted for approval.`,
             });
@@ -676,27 +712,49 @@ export default function ContributorDashboard() {
             <div className="space-y-6 animate-fade-in-up">
               {/* Header Row: Filters + Search + View Toggle */}
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1">
-                  {/* Status Filter Pills */}
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-                    {["All", "Active", "Pending", "Rejected"].map((filter) => (
-                      <button 
-                        key={filter} 
-                        onClick={() => setPortfolioFilter(filter as any)}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
-                          portfolioFilter === filter 
-                            ? "bg-[color:var(--color-primary)] text-white border-[color:var(--color-primary)] shadow-sm" 
-                            : "bg-white border-gray-200/80 text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        {filter}
-                      </button>
-                    ))}
+                <div className="flex flex-col lg:flex-row gap-4 lg:items-center flex-1">
+                  <div className="flex flex-wrap items-center gap-4">
+                    {/* Status Filter Pills */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                      {["All", "Active", "Pending", "Rejected"].map((filter) => (
+                        <button 
+                          key={filter} 
+                          onClick={() => setPortfolioFilter(filter as any)}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
+                            portfolioFilter === filter 
+                              ? "bg-[color:var(--color-primary)] text-white border-[color:var(--color-primary)] shadow-sm" 
+                              : "bg-white border-gray-200/80 text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                          }`}
+                        >
+                          {filter}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Category Filter Pills */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">Category:</span>
+                      {["All", "Nature", "Landscape", "Aerial", "Urban"].map((cat) => (
+                        <button 
+                          key={cat} 
+                          onClick={() => setCategoryFilter(cat)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
+                            categoryFilter === cat 
+                              ? "bg-gray-900 text-white border-gray-900 shadow-sm" 
+                              : "bg-white border-gray-200/80 text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Search Bar */}
                   <div className="relative w-full sm:w-64">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                     <input
                       type="text"
                       placeholder="Search photo, location, tags..."
@@ -707,7 +765,7 @@ export default function ContributorDashboard() {
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-650 text-xs font-bold"
                       >
                         ✕
                       </button>
@@ -715,22 +773,44 @@ export default function ContributorDashboard() {
                   </div>
                 </div>
                 
-                {/* View Toggle */}
-                <div className="flex items-center bg-gray-100/80 p-1 rounded-xl w-fit">
-                  <button 
-                    onClick={() => setPhotosView("grid")}
-                    className={`p-2 rounded-lg transition-all flex items-center gap-2 ${photosView === "grid" ? "bg-white text-[color:var(--color-text)] shadow-sm font-bold" : "text-gray-400 hover:text-gray-600"}`}
-                  >
-                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={photosView === "grid" ? 2 : 1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-                    <span className="text-xs pr-1 sm:hidden">Grid</span>
-                  </button>
-                  <button 
-                    onClick={() => setPhotosView("list")}
-                    className={`p-2 rounded-lg transition-all flex items-center gap-2 ${photosView === "list" ? "bg-white text-[color:var(--color-text)] shadow-sm font-bold" : "text-gray-400 hover:text-gray-600"}`}
-                  >
-                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={photosView === "list" ? 2 : 1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
-                    <span className="text-xs pr-1 sm:hidden">List</span>
-                  </button>
+                <div className="flex items-center gap-4">
+                  {/* Sort Dropdown */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sort:</span>
+                    <div className="relative">
+                      <select
+                        value={portfolioSort}
+                        onChange={(e) => setPortfolioSort(e.target.value as any)}
+                        className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-[color:var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-primary)]/20 focus:border-[color:var(--color-primary)] transition-all cursor-pointer appearance-none"
+                      >
+                        <option value="uploadedAt">Newest Uploads</option>
+                        <option value="downloads">Most Downloaded</option>
+                        <option value="views">Most Viewed</option>
+                        <option value="earnings">Highest Earnings</option>
+                      </select>
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* View Toggle */}
+                  <div className="flex items-center bg-gray-100/80 p-1 rounded-xl w-fit">
+                    <button 
+                      onClick={() => setPhotosView("grid")}
+                      className={`p-2 rounded-lg transition-all flex items-center gap-2 ${photosView === "grid" ? "bg-white text-[color:var(--color-text)] shadow-sm font-bold" : "text-gray-400 hover:text-gray-650"}`}
+                    >
+                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={photosView === "grid" ? 2 : 1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                      <span className="text-xs pr-1 sm:hidden">Grid</span>
+                    </button>
+                    <button 
+                      onClick={() => setPhotosView("list")}
+                      className={`p-2 rounded-lg transition-all flex items-center gap-2 ${photosView === "list" ? "bg-white text-[color:var(--color-text)] shadow-sm font-bold" : "text-gray-400 hover:text-gray-650"}`}
+                    >
+                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={photosView === "list" ? 2 : 1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                      <span className="text-xs pr-1 sm:hidden">List</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -740,7 +820,11 @@ export default function ContributorDashboard() {
                   if (portfolioFilter !== "All" && photo.status !== portfolioFilter.toLowerCase()) {
                     return false;
                   }
-                  // 2. Search Query Filter
+                  // 2. Category Filter
+                  if (categoryFilter !== "All" && photo.category.toLowerCase() !== categoryFilter.toLowerCase()) {
+                    return false;
+                  }
+                  // 3. Search Query Filter
                   if (searchQuery.trim()) {
                     const q = searchQuery.toLowerCase().trim();
                     const matchesAlt = photo.alt.toLowerCase().includes(q);
@@ -751,10 +835,32 @@ export default function ContributorDashboard() {
                   return true;
                 });
 
-                if (filteredPhotos.length === 0) {
+                // Sort photos
+                const sortedPhotos = [...filteredPhotos].sort((a, b) => {
+                  if (portfolioSort === "uploadedAt") {
+                    return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
+                  }
+                  if (portfolioSort === "downloads") {
+                    return b.downloads - a.downloads;
+                  }
+                  if (portfolioSort === "views") {
+                    return b.views - a.views;
+                  }
+                  if (portfolioSort === "earnings") {
+                    return b.earnings - a.earnings;
+                  }
+                  return 0;
+                });
+
+                if (sortedPhotos.length === 0) {
                   return (
-                    <div className="py-20 text-center bg-white border border-gray-200/80 rounded-2xl flex flex-col items-center justify-center gap-4 shadow-sm">
-                      <span className="text-4xl">📸</span>
+                    <div className="py-20 text-center bg-white border border-gray-200/80 rounded-2xl flex flex-col items-center justify-center gap-4 shadow-sm animate-fade-in">
+                      <div className="p-4 bg-gray-50 rounded-full text-gray-400">
+                        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                        </svg>
+                      </div>
                       <div>
                         <p className="text-[color:var(--color-text)] font-bold text-base">No photographs found</p>
                         <p className="text-gray-400 text-xs mt-1">Try adjusting your filters or search terms, or upload a new photo.</p>
@@ -762,6 +868,7 @@ export default function ContributorDashboard() {
                       <button
                         onClick={() => {
                           setPortfolioFilter("All");
+                          setCategoryFilter("All");
                           setSearchQuery("");
                         }}
                         className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all"
@@ -775,7 +882,7 @@ export default function ContributorDashboard() {
                 return photosView === "grid" ? (
                   /* Grid View */
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {filteredPhotos.map((photo) => (
+                    {sortedPhotos.map((photo) => (
                       <div key={photo.id} onClick={() => openDrawer(photo)} className="group relative rounded-2xl overflow-hidden bg-white border border-gray-200/80 shadow-sm cursor-pointer">
                         <div className="aspect-square relative">
                           <Image src={photo.src} alt={photo.alt} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="25vw" />
@@ -815,7 +922,7 @@ export default function ContributorDashboard() {
                 ) : (
                   /* List View */
                   <div className="space-y-3">
-                    {filteredPhotos.map((photo) => (
+                    {sortedPhotos.map((photo) => (
                       <div key={photo.id} onClick={() => openDrawer(photo)} className="group flex items-center justify-between p-3 bg-white border border-gray-200/80 rounded-2xl shadow-sm hover:border-[color:var(--color-primary)]/30 transition-all cursor-pointer">
                         <div className="flex items-center gap-4">
                           <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0">
@@ -1542,13 +1649,13 @@ export default function ContributorDashboard() {
                       onClick={() => setSelectedPaymentType("mpesa")}
                       className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${selectedPaymentType === "mpesa" ? "bg-white text-[color:var(--color-text)] shadow-sm border border-gray-200/50" : "text-gray-500 hover:text-gray-700"}`}
                     >
-                      <span>📱</span> M-Pesa
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg> M-Pesa
                     </button>
                     <button 
                       onClick={() => setSelectedPaymentType("bank")}
                       className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${selectedPaymentType === "bank" ? "bg-white text-[color:var(--color-text)] shadow-sm border border-gray-200/50" : "text-gray-500 hover:text-gray-700"}`}
                     >
-                      <span>🏦</span> Bank Transfer
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-500"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg> Bank Transfer
                     </button>
                   </div>
                 )}
@@ -1649,8 +1756,18 @@ export default function ContributorDashboard() {
                           <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                           Current Payout Method
                         </div>
-                        <div className="text-[color:var(--color-text)] font-bold flex items-center gap-2">
-                          {savedPaymentData.type === "mpesa" ? "📱 M-Pesa" : `🏦 ${savedPaymentData.bankName}`}
+                        <div className="text-[color:var(--color-text)] font-bold flex items-center gap-1.5">
+                          {savedPaymentData.type === "mpesa" ? (
+                            <>
+                              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                              <span>M-Pesa</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-500"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                              <span>{savedPaymentData.bankName}</span>
+                            </>
+                          )}
                         </div>
                         <div className="text-gray-500 font-mono text-sm">
                           {savedPaymentData.type === "mpesa" ? savedPaymentData.phone.slice(-3).padStart(savedPaymentData.phone.length, "•") : `•••• •••• ${savedPaymentData.accountNum.slice(-4)}`}
@@ -1687,7 +1804,9 @@ export default function ContributorDashboard() {
 
                 {/* Minimum Payout Info Block */}
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl text-gray-500 text-sm">
-                  <span className="text-lg leading-none">ℹ️</span>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-400 mt-0.5 flex-shrink-0">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                   <p>Payouts are processed once your balance reaches <strong>KES 2,000</strong>. Payments are made on the 15th of each month.</p>
                 </div>
 
@@ -1988,10 +2107,12 @@ export default function ContributorDashboard() {
       >
         {selectedTransaction && (
           <>
-            {/* Header */}
+             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">📄</span>
+              <div className="flex items-center gap-2.5">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-500">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
                 <div>
                   <h2 className="font-bold text-[color:var(--color-text)]">Transaction Receipt</h2>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Transaction Audit Slip</p>
