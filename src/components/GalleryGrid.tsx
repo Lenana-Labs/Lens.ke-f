@@ -4,19 +4,17 @@ import useSWR from "swr";
 import { useMemo } from "react";
 import GalleryCard from "./GalleryCard";
 import { galleryImages } from "../data/galleryImages";
+import { apiClient } from "../lib/api/client";
 
-// Basic fetcher for SWR. (You might want to replace this with your 
-// pre-configured axios apiClient from src/lib/api/client.ts)
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+// Use the pre-configured axios apiClient for SWR
+const fetcher = (url: string) => apiClient.get(url).then((res) => res.data);
 
 export default function GalleryGrid() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
-  const endpoint = process.env.NEXT_PUBLIC_PHOTO_LIST || "";
-  const fullUrl = endpoint ? `${baseUrl}${endpoint}` : null;
+  const endpoint = process.env.NEXT_PUBLIC_PHOTO_LIST || "/api/v1/photos";
 
-  // Fetch from the environment variable API endpoint using SWR
+  // Fetch from the API endpoint using SWR. apiClient automatically applies the base URL.
   const { data: apiResponse, error, isLoading } = useSWR(
-    fullUrl,
+    endpoint,
     fetcher
   );
 

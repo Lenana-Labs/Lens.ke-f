@@ -431,7 +431,7 @@ export default function ContributorDashboard() {
     }
   };
 
-  const handlePhotoSubmit = () => {
+  const handlePhotoSubmit = async () => {
     // Validation
     if (!uploadFile) {
       toast.error("Validation failed", {
@@ -464,53 +464,102 @@ export default function ContributorDashboard() {
       return;
     }
 
-    // Start mock upload progress
     setIsUploading(true);
-    setUploadProgress(0);
-    
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            // Add new photo item to the dashboard portfolio
-            const newPhoto: Photo = {
-              id: `g-${Date.now()}`,
-              src: previewUrl || "/images/gallery/savannah_green.png",
-              alt: uploadTitle,
-              downloads: 0,
-              views: 0,
-              earnings: 0,
-              status: "pending",
-              description: uploadDesc || "No description provided.",
-              location: uploadLocation,
-              camera: uploadCamera || "Standard Camera",
-              category: uploadCategory || "General",
-              tags: selectedTags.length > 0 ? selectedTags : ["photography"],
-              uploadedAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            };
-            setPhotosList(prev => [newPhoto, ...prev]);
+    setUploadProgress(10);
 
-            toast.success("Submission Successful!", {
-              description: `"${uploadTitle}" has been submitted for approval.`,
-            });
-            // Reset Form
-            setIsUploading(false);
-            setUploadProgress(0);
-            setUploadFile(null);
-            setPreviewUrl("");
-            setUploadTitle("");
-            setUploadLocation("");
-            setUploadCamera("");
-            setUploadCategory("");
-            setUploadDesc("");
-            setSelectedTags([]);
-          }, 350);
-          return 100;
-        }
-        return prev + 10;
+    try {
+      const intentUrl = process.env.NEXT_PUBLIC_PHOTO_UPLOAD_INTENT || "";
+      const finalizeUrl = process.env.NEXT_PUBLIC_PHOTO_FINALIZE || "";
+
+      if (!intentUrl || !finalizeUrl) {
+        throw new Error("Upload API endpoints are not configured in environment variables.");
+      }
+
+      // Step 1: Call the intent API to get the presigned URL & fileKey
+      const intentRes = await fetch(intentUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: uploadFile.name,
+          fileType: uploadFile.type,
+          fileSize: uploadFile.size,
+          title: uploadTitle,
+          location: uploadLocation,
+          camera: uploadCamera,
+          category: uploadCategory,
+          description: uploadDesc,
+          tags: selectedTags,
+        }),
       });
-    }, 150);
+
+      if (!intentRes.ok) throw new Error("Failed to initialize upload intent.");
+      
+      const { uploadUrl, fileKey } = await intentRes.json();
+      setUploadProgress(40);
+
+      // Step 2: Upload the actual file directly to the provided URL (e.g. S3 presigned URL)
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": uploadFile.type,
+        },
+        body: uploadFile,
+      });
+
+      if (!uploadRes.ok) throw new Error("Failed to upload the file to storage.");
+      setUploadProgress(80);
+
+      // Step 3: Finalize the upload
+      const finalizeRes = await fetch(finalizeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileKey }),
+      });
+
+      if (!finalizeRes.ok) throw new Error("Failed to finalize upload.");
+      setUploadProgress(100);
+
+      // Success - Add new photo item to the dashboard portfolio
+      const newPhoto: Photo = {
+        id: `g-${Date.now()}`,
+        src: previewUrl || "/images/gallery/savannah_green.png",
+        alt: uploadTitle,
+        downloads: 0,
+        views: 0,
+        earnings: 0,
+        status: "pending",
+        description: uploadDesc || "No description provided.",
+        location: uploadLocation,
+        camera: uploadCamera || "Standard Camera",
+        category: uploadCategory || "General",
+        tags: selectedTags.length > 0 ? selectedTags : ["photography"],
+        uploadedAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      };
+      setPhotosList((prev) => [newPhoto, ...prev]);
+
+      toast.success("Submission Successful!", {
+        description: `"${uploadTitle}" has been submitted for approval.`,
+      });
+
+      // Reset Form
+      setIsUploading(false);
+      setUploadProgress(0);
+      setUploadFile(null);
+      setPreviewUrl("");
+      setUploadTitle("");
+      setUploadLocation("");
+      setUploadCamera("");
+      setUploadCategory("");
+      setUploadDesc("");
+      setSelectedTags([]);
+
+    } catch (error: any) {
+      toast.error("Upload failed", {
+        description: error.message || "An unexpected error occurred during upload.",
+      });
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   return (
