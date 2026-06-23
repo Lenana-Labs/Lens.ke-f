@@ -8,14 +8,19 @@ import type { UserProfile } from '@/types/auth';
  * For now, it simply checks the `session_active` cookie.
  */
 export async function getServerSession(): Promise<{ user: UserProfile } | null> {
-  const cookieStore = cookies();
-  const sessionActive = cookieStore.get('session_active')?.value === 'true';
+  const cookieStore = await cookies();
+  const token = cookieStore.get('access_token')?.value;
 
-  if (!sessionActive) {
+  if (!token) {
     return null;
   }
 
-  // Mock returning a user profile based on the session flag
+  // TODO: Replace this mock by fetching the real user profile from your Django backend
+  // const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/v1/auth/me`, {
+  //   headers: { Authorization: `Bearer ${token}` }
+  // });
+  // const realUser = await res.json();
+
   return {
     user: {
       id: 2,

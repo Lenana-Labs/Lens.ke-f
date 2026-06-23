@@ -30,7 +30,8 @@ export function AuthProvider({
     const handleLogoutEvent = () => {
       setUser(null);
       document.cookie = 'session_active=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-      router.push('/login');
+      // router.push('/login');
+      router.push('/auth');
     };
     window.addEventListener('auth:logout', handleLogoutEvent);
     return () => window.removeEventListener('auth:logout', handleLogoutEvent);

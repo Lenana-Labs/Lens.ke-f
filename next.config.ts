@@ -30,7 +30,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE_URL || ''}`,
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_BASE_URL || ''}`,
       "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://loremflickr.com https://images.unsplash.com https://source.unsplash.com",
