@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
+import { authStore } from "../lib/api/authStore";
 
 const playfair = Playfair_Display({ subsets: ["latin"], style: ["italic", "normal"] });
 
@@ -77,7 +78,7 @@ export default function AuthForm() {
       if (isLogin) {
         payload = { email, password };
       } else {
-        payload = { firstName, lastName, email, password, phone_number: phone };
+        payload = { first_name: firstName, last_name: lastName, email, password, phone_number: phone };
       }
 
       const response = await fetch(fullUrl, {
@@ -107,6 +108,9 @@ export default function AuthForm() {
           if (isLogin && token) {
             // Note: You should also pass this token to your `authStore` from src/lib/api/authStore.ts here
             // authStore.setTokens(token, data.refreshToken || data.refresh);
+            
+            // Pass this token to your authStore so the Axios interceptor can use it for uploads!
+            authStore.setTokens(token, data.refreshToken || data.refresh || "");
 
             // Set the session cookie that your proxy.ts middleware relies on to unlock protected routes
             // SECURITY WARNING: document.cookie cannot set HttpOnly flags. 
