@@ -1,31 +1,35 @@
+import { apiClient } from './client';
 import type { DashboardMetrics } from '@/types/contributor';
 
-/**
- * Mock Contributor API.
- * When backend connection details arrive, replace these with real `apiClient` calls.
- * Example: `apiClient.get<DashboardMetrics>('/api/contributor/metrics/')`
- */
 export const contributorApi = {
   /**
-   * MOCK: Fetches contributor dashboard summary metrics.
-   * Expected real endpoint: GET /api/contributor/metrics/
+   * Fetches contributor metrics for the dashboard home.
+   * GET /api/v1/contributor/dashboard
    */
   getMetrics: async (): Promise<DashboardMetrics> => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    
-    return {
-      totalEarnings: 45200,
-      earningsChange: '+12.5%',
-      earningsPositive: true,
-      totalViews: 124500,
-      viewsChange: '+5.2%',
-      viewsPositive: true,
-      totalDownloads: 342,
-      downloadsChange: '-2.1%',
-      downloadsPositive: false,
-      activePhotos: 128,
-      photosChange: '+4',
-      photosPositive: true,
-    };
+    const { data } = await apiClient.get<DashboardMetrics>('/api/v1/contributor/dashboard');
+    return data;
+  },
+
+  /**
+   * Updates payout configuration details (M-Pesa / Bank).
+   * POST /api/v1/contributor/payout-method
+   */
+  updatePayoutMethod: async (payload: Record<string, any>): Promise<any> => {
+    const { data } = await apiClient.post<any>('/api/v1/contributor/payout-method', payload);
+    return data;
+  },
+
+  /**
+   * Submits a cash withdrawal request to the backend.
+   * POST /api/v1/contributor/withdraw
+   */
+  requestWithdrawal: async (payload: {
+    amount: number;
+    method: 'mpesa' | 'bank';
+    details: Record<string, any>;
+  }): Promise<any> => {
+    const { data } = await apiClient.post<any>('/api/v1/contributor/withdraw', payload);
+    return data;
   },
 };

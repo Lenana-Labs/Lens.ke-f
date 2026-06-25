@@ -7,23 +7,16 @@ import type { UserProfile } from '@/types/auth';
  * exchange it for a new access token via the Django backend, and fetch the user profile.
  * For now, it simply checks the `session_active` cookie.
  */
-export async function getServerSession(): Promise<{ user: UserProfile } | null> {
-  const cookieStore = cookies();
+export async function getServerSession(): Promise<{ user: UserProfile | null } | null> {
+  const cookieStore = await cookies();
   const sessionActive = cookieStore.get('session_active')?.value === 'true';
 
   if (!sessionActive) {
     return null;
   }
 
-  // Mock returning a user profile based on the session flag
+  // Return session with null user to let AuthContext fetch the real user profile from live backend
   return {
-    user: {
-      id: 2,
-      email: 'contributor@example.com',
-      firstName: 'Wanjiku',
-      lastName: 'Kamau',
-      phone: '+254700000000',
-      isContributor: true,
-    },
+    user: null,
   };
 }

@@ -5,6 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
 import { toast } from "sonner";
+import { photosApi } from "@/lib/api/photos";
+import { contributorApi } from "@/lib/api/contributor";
+import type { DashboardMetrics } from "@/types/contributor";
+import { useAuth } from "@/context/AuthContext";
 
 const playfair = Playfair_Display({ subsets: ["latin"], style: ["italic", "normal"] });
 
@@ -116,10 +120,12 @@ const NAV_ITEMS = [
 ];
 
 export default function ContributorDashboard() {
+  const { user } = useAuth();
   const [activeNav, setActiveNav] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [photosView, setPhotosView] = useState<"grid" | "list">("grid");
   const [photosList, setPhotosList] = useState<Photo[]>(initialMockPhotos);
+  const [lastWithdrawal, setLastWithdrawal] = useState<{ amount: number; method: string; date: string } | null>(null);
   const [portfolioFilter, setPortfolioFilter] = useState<"All" | "Active" | "Pending" | "Rejected">("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [portfolioSort, setPortfolioSort] = useState<"uploadedAt" | "downloads" | "views" | "earnings">("uploadedAt");
@@ -170,11 +176,97 @@ export default function ContributorDashboard() {
   const [paymentAccountNum, setPaymentAccountNum] = useState("");
   const [paymentAccountName, setPaymentAccountName] = useState("");
   const [paymentBranch, setPaymentBranch] = useState("");
+  const [dashboardMetrics, setDashboardMetrics] = useState<DashboardMetrics | null>(null);
+
+  // Load live contributor metrics and photos on mount
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const metricsData = await contributorApi.getMetrics();
+        if (metricsData) {
+          setDashboardMetrics(metricsData);
+          if (metricsData.totalEarnings !== undefined) {
+            setAvailableBalance(metricsData.totalEarnings);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load contributor metrics from backend:", err);
+      }
+    };
+
+    const fetchPhotosData = async () => {
+      try {
+        const res = await photosApi.list();
+        if (res && res.results) {
+          const mappedPhotos: Photo[] = res.results.map((p: any) => ({
+            id: String(p.id),
+            src: p.url || p.src || '/images/gallery/savannah_green.png',
+            alt: p.title || p.alt || 'Untitled',
+            downloads: p.downloads || 0,
+            views: p.views || 0,
+            earnings: p.earnings || p.price || 0,
+            status: p.status || 'active',
+            description: p.description || '',
+            location: p.location || '',
+            camera: p.camera || '',
+            category: p.category || '',
+            tags: p.tags || [],
+            uploadedAt: p.uploadedAt || p.created_at || 'Unknown',
+          }));
+          setPhotosList(mappedPhotos);
+        }
+      } catch (err) {
+        console.error("Failed to load photos from backend:", err);
+      }
+    };
+
+    fetchDashboardData();
+    fetchPhotosData();
+  }, []);
 
   const pendingClearance = transactionsList
     .filter(t => t.status === "pending")
     .reduce((acc, t) => acc + t.amount, 0);
   const totalEarnings = availableBalance + pendingClearance;
+
+  const dynamicStats = [
+    {
+      label: "Total Earnings",
+      value: `KES ${(dashboardMetrics?.totalEarnings ?? totalEarnings).toLocaleString()}`,
+      change: dashboardMetrics?.earningsChange ?? "+12.5%",
+      positive: dashboardMetrics?.earningsPositive ?? true,
+      icon: (
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      ),
+    },
+    {
+      label: "Total Downloads",
+      value: (dashboardMetrics?.totalDownloads ?? photosList.reduce((acc, p) => acc + p.downloads, 0)).toLocaleString(),
+      change: dashboardMetrics?.downloadsChange ?? "+8.1%",
+      positive: dashboardMetrics?.downloadsPositive ?? true,
+      icon: (
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+      ),
+    },
+    {
+      label: "Total Views",
+      value: (dashboardMetrics?.totalViews ?? photosList.reduce((acc, p) => acc + p.views, 0)).toLocaleString(),
+      change: dashboardMetrics?.viewsChange ?? "+22.3%",
+      positive: dashboardMetrics?.viewsPositive ?? true,
+      icon: (
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+      ),
+    },
+    {
+      label: "Active Photos",
+      value: (dashboardMetrics?.activePhotos ?? photosList.filter(p => p.status === "active").length).toString(),
+      change: dashboardMetrics?.photosChange ?? `${photosList.filter(p => p.status === "pending").length} pending`,
+      positive: dashboardMetrics?.photosPositive ?? (photosList.filter(p => p.status === "pending").length === 0),
+      icon: (
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+      ),
+    },
+  ];
 
   const handleSavePaymentMethod = () => {
     setIsSavingPayment(true);
@@ -198,12 +290,22 @@ export default function ContributorDashboard() {
     }, 1500);
   };
 
-  const handleWithdrawSubmit = (e: React.FormEvent) => {
+  const handleWithdrawSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(withdrawAmount);
     if (isNaN(amount) || amount < 500 || amount > availableBalance) return;
     setIsWithdrawing(true);
-    setTimeout(() => {
+    try {
+      const details = withdrawMethod === "mpesa"
+        ? { phone: withdrawPhone }
+        : { bank: withdrawBank, account: withdrawAccount };
+
+      await contributorApi.requestWithdrawal({
+        amount,
+        method: withdrawMethod,
+        details
+      });
+
       // Deduct from available balance
       setAvailableBalance(prev => prev - amount);
 
@@ -217,11 +319,24 @@ export default function ContributorDashboard() {
       };
       setPayoutsList(prev => [newPayout, ...prev]);
 
+      setLastWithdrawal({
+        amount,
+        method: withdrawMethod === "mpesa" ? "M-Pesa" : "Bank Transfer",
+        date: newPayout.date,
+      });
+
       toast.success("Withdrawal Requested", { description: `KES ${withdrawAmount} will be sent via ${withdrawMethod === "mpesa" ? "M-Pesa" : "Bank Transfer"} within 24 hours.` });
-      setIsWithdrawing(false);
       setShowWithdrawModal(false);
       setWithdrawAmount("");
-    }, 1500);
+    } catch (err: any) {
+      console.error("Withdrawal request failed:", err);
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to submit withdrawal request. Please try again.";
+      toast.error("Withdrawal Failed", {
+        description: errorMessage
+      });
+    } finally {
+      setIsWithdrawing(false);
+    }
   };
 
   // Sync drawer fields when photo is selected
@@ -431,7 +546,7 @@ export default function ContributorDashboard() {
     }
   };
 
-  const handlePhotoSubmit = () => {
+  const handlePhotoSubmit = async () => {
     // Validation
     if (!uploadFile) {
       toast.error("Validation failed", {
@@ -464,53 +579,77 @@ export default function ContributorDashboard() {
       return;
     }
 
-    // Start mock upload progress
+    // Start upload progress
     setIsUploading(true);
     setUploadProgress(0);
     
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            // Add new photo item to the dashboard portfolio
-            const newPhoto: Photo = {
-              id: `g-${Date.now()}`,
-              src: previewUrl || "/images/gallery/savannah_green.png",
-              alt: uploadTitle,
-              downloads: 0,
-              views: 0,
-              earnings: 0,
-              status: "pending",
-              description: uploadDesc || "No description provided.",
-              location: uploadLocation,
-              camera: uploadCamera || "Standard Camera",
-              category: uploadCategory || "General",
-              tags: selectedTags.length > 0 ? selectedTags : ["photography"],
-              uploadedAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            };
-            setPhotosList(prev => [newPhoto, ...prev]);
-
-            toast.success("Submission Successful!", {
-              description: `"${uploadTitle}" has been submitted for approval.`,
-            });
-            // Reset Form
-            setIsUploading(false);
-            setUploadProgress(0);
-            setUploadFile(null);
-            setPreviewUrl("");
-            setUploadTitle("");
-            setUploadLocation("");
-            setUploadCamera("");
-            setUploadCategory("");
-            setUploadDesc("");
-            setSelectedTags([]);
-          }, 350);
-          return 100;
-        }
-        return prev + 10;
+    try {
+      // Phase 1: Intent
+      const intent = await photosApi.createUploadIntent({
+        filename: uploadFile.name,
+        file_size: uploadFile.size,
+        content_type: uploadFile.type,
       });
-    }, 150);
+
+      const { upload_url, photo_id } = intent;
+
+      // Phase 2: Binary Push (S3 / Supabase storage)
+      await photosApi.uploadFileBinary(upload_url, uploadFile, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      // Phase 3: Finalize
+      const finalizedPhoto: any = await photosApi.finalizeUpload(photo_id, {
+        title: uploadTitle,
+        description: uploadDesc || "No description provided.",
+        location: uploadLocation,
+        camera: uploadCamera || "Standard Camera",
+        category: uploadCategory || "General",
+        tags: selectedTags,
+      });
+
+      // Add finalized photo item to the dashboard portfolio
+      const newPhoto: Photo = {
+        id: String(finalizedPhoto.id),
+        src: finalizedPhoto.url || finalizedPhoto.src || previewUrl || "/images/gallery/savannah_green.png",
+        alt: finalizedPhoto.title || finalizedPhoto.alt || uploadTitle,
+        downloads: finalizedPhoto.downloads || 0,
+        views: finalizedPhoto.views || 0,
+        earnings: finalizedPhoto.earnings || finalizedPhoto.price || 0,
+        status: finalizedPhoto.status || "pending",
+        description: finalizedPhoto.description || uploadDesc || "No description provided.",
+        location: finalizedPhoto.location || uploadLocation,
+        camera: finalizedPhoto.camera || uploadCamera || "Standard Camera",
+        category: finalizedPhoto.category || uploadCategory || "General",
+        tags: finalizedPhoto.tags || selectedTags,
+        uploadedAt: finalizedPhoto.uploadedAt || finalizedPhoto.created_at || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      };
+
+      setPhotosList(prev => [newPhoto, ...prev]);
+
+      toast.success("Submission Successful!", {
+        description: `"${uploadTitle}" has been submitted for approval.`,
+      });
+
+      // Reset Form
+      setUploadFile(null);
+      setPreviewUrl("");
+      setUploadTitle("");
+      setUploadLocation("");
+      setUploadCamera("");
+      setUploadCategory("");
+      setUploadDesc("");
+      setSelectedTags([]);
+    } catch (err: any) {
+      console.error("Upload workflow failed:", err);
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to upload photo. Please verify your connection.";
+      toast.error("Upload Failed", {
+        description: errorMessage,
+      });
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   return (
@@ -565,7 +704,9 @@ export default function ContributorDashboard() {
               <Image src="/images/gallery/swahili_blue.png" alt="Profile" fill className="object-cover" sizes="36px" />
             </div>
             <div className={`overflow-hidden transition-all duration-300 ${sidebarOpen ? "opacity-100 w-auto" : "opacity-0 w-0"}`}>
-              <p className="text-sm font-bold whitespace-nowrap text-[color:var(--color-text)]">W. Kamau</p>
+              <p className="text-sm font-bold whitespace-nowrap text-[color:var(--color-text)]">
+                {user ? `${user.firstName.charAt(0)}. ${user.lastName}` : "W. Kamau"}
+              </p>
               <p className="text-xs text-gray-400 whitespace-nowrap">Contributor</p>
             </div>
           </button>
@@ -592,7 +733,7 @@ export default function ContributorDashboard() {
               )}
             </div>
             <h1 className={`text-3xl tracking-tight text-[color:var(--color-text)] ${playfair.className}`}>
-              {activeNav === "overview" && <span>Good morning, <span className="font-bold italic text-[color:var(--color-primary)]">Wanjiku ✦</span></span>}
+              {activeNav === "overview" && <span>Good morning, <span className="font-bold italic text-[color:var(--color-primary)]">{user?.firstName || "Wanjiku"} ✦</span></span>}
               {activeNav === "photos" && <span>Your <span className="italic text-gray-400">Portfolio</span></span>}
               {activeNav === "upload" && <span>Upload <span className="italic text-gray-400">Photograph</span></span>}
               {activeNav === "earnings" && <span>Earnings <span className="italic text-gray-400">Summary</span></span>}
@@ -627,7 +768,7 @@ export default function ContributorDashboard() {
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {STATS.map((stat) => (
+                {dynamicStats.map((stat) => (
                   <div key={stat.label} className="bg-white border border-gray-200/80 rounded-2xl p-5 hover:border-[color:var(--color-primary)]/30 transition-colors group shadow-sm">
                     <div className="flex items-start justify-between mb-4">
                       <div className="p-2.5 bg-gray-50 rounded-xl text-gray-500 group-hover:text-[color:var(--color-primary)] group-hover:bg-[color:var(--color-primary)]/10 transition-colors">
@@ -1311,8 +1452,35 @@ export default function ContributorDashboard() {
 
           {/* ---- EARNINGS TAB ---- */}
           {activeNav === "earnings" && (
-            <div className="space-y-20 animate-fade-in-up max-w-5xl mx-auto">
+            <div className="space-y-8 animate-fade-in-up max-w-5xl mx-auto">
               
+              {/* Successful Withdrawal Feedback Banner */}
+              {lastWithdrawal && (
+                <div className="bg-green-50 border border-green-150 rounded-2xl p-5 flex items-start gap-4 animate-fade-in-up">
+                  <div className="p-2.5 bg-green-500/10 text-green-600 rounded-xl flex-shrink-0">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-green-800 text-sm">Withdrawal Request Successful</h4>
+                    <p className="text-xs text-green-700 mt-1 leading-relaxed">
+                      Your request to withdraw KES {lastWithdrawal.amount.toLocaleString()} via {lastWithdrawal.method} has been received. 
+                      The funds are being processed and will be credited to your account within 24 hours.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setLastWithdrawal(null)} 
+                    className="text-green-500 hover:text-green-700 transition-colors p-1"
+                    aria-label="Dismiss feedback"
+                  >
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
               {/* Cinematic Reward Hero */}
               <div className="relative bg-gray-900 rounded-[32px] p-10 md:p-16 text-white overflow-hidden shadow-2xl">
                 {/* Subtle background texture/glow */}

@@ -1,111 +1,78 @@
+import { apiClient } from './client';
 import { authStore } from './authStore';
 import type { LoginPayload, RegisterPayload, AuthTokens, UserProfile } from '@/types/auth';
 
-/**
- * Mock Auth API.
- * When backend connection details arrive, replace these with real `apiClient.post` / `apiClient.get` calls.
- * Example: `const { data } = await apiClient.post<AuthTokens>(TOKEN_OBTAIN, payload);`
- */
+const TOKEN_OBTAIN = process.env.NEXT_PUBLIC_AUTH_TOKEN_OBTAIN || '/api/v1/auth/login';
+const TOKEN_REFRESH = process.env.NEXT_PUBLIC_AUTH_TOKEN_REFRESH || '/api/v1/auth/refresh';
+
 export const authApi = {
   /**
-   * MOCK: Simulates logging in with email/password.
-   * Expected real endpoint: POST /api/token/
+   * Logs in a user by fetching JWT access and refresh tokens.
    */
   login: async (payload: LoginPayload): Promise<AuthTokens> => {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    // Mock validation
-    if (payload.email === 'admin@example.com' && payload.password === 'admin') {
-      const tokens: AuthTokens = {
-        access: 'mock-access-token-12345',
-        refresh: 'mock-refresh-token-67890',
-      };
-      authStore.setTokens(tokens.access, tokens.refresh);
-      return tokens;
-    }
-
-    if (payload.email === 'contributor@example.com' && payload.password === 'contributor') {
-      const tokens: AuthTokens = {
-        access: 'mock-access-token-contributor',
-        refresh: 'mock-refresh-token-contributor',
-      };
-      authStore.setTokens(tokens.access, tokens.refresh);
-      return tokens;
-    }
-
-    throw new Error('Invalid credentials. For mock, use admin@example.com / admin');
+    const { data } = await apiClient.post<AuthTokens>(TOKEN_OBTAIN, payload);
+    authStore.setTokens(data.access, data.refresh);
+    return data;
   },
 
   /**
-   * MOCK: Simulates user registration.
-   * Expected real endpoint: POST /api/users/ (or custom registration endpoint)
+   * Registers a new user and returns authentication tokens.
    */
   register: async (payload: RegisterPayload): Promise<AuthTokens> => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    
-    // Simulate successful registration and auto-login
-    const tokens: AuthTokens = {
-      access: 'mock-access-token-new-user',
-      refresh: 'mock-refresh-token-new-user',
+    // Map camelCase fields to standard Django parameters + custom name parameter
+    const payloadToSend = {
+      email: payload.email,
+      password: payload.password,
+      name: `${payload.firstName} ${payload.lastName}`.trim(),
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      phone: payload.phone,
     };
-    authStore.setTokens(tokens.access, tokens.refresh);
-    return tokens;
+    const { data } = await apiClient.post<any>('/api/v1/auth/register', payloadToSend);
+    if (!data.access) {
+      return await authApi.login({ email: payload.email, password: payload.password });
+    }
+    authStore.setTokens(data.access, data.refresh);
+    return data;
   },
 
   /**
-   * MOCK: Simulates refreshing the access token.
-   * Expected real endpoint: POST /api/token/refresh/
+   * Manually refreshes the active access token using the stored refresh token.
    */
   refresh: async (): Promise<string> => {
-    await new Promise((resolve) => setTimeout(resolve, 400));
     const refresh = authStore.getRefreshToken();
     if (!refresh) throw new Error('No refresh token available');
-    
-    const newAccess = 'mock-new-access-token';
-    const newRefresh = 'mock-new-refresh-token'; // Simulating ROTATE_REFRESH_TOKENS=True
-    authStore.setTokens(newAccess, newRefresh);
-    return newAccess;
+    const { data } = await apiClient.post<AuthTokens>(TOKEN_REFRESH, { refresh });
+    authStore.setTokens(data.access, data.refresh || refresh);
+    return data.access;
   },
 
   /**
-   * MOCK: Simulates logging out and token blacklisting.
-   * Expected real endpoint: POST /api/token/blacklist/
+   * Logs the user out and clears in-memory tokens.
    */
   logout: async (): Promise<void> => {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    authStore.clearTokens();
+    try {
+      const refresh = authStore.getRefreshToken();
+      if (refresh) {
+        await apiClient.post('/api/v1/auth/logout', { refresh });
+      }
+    } finally {
+      authStore.clearTokens();
+    }
   },
 
   /**
-   * MOCK: Simulates fetching the current user's profile.
-   * Expected real endpoint: GET /api/users/me/
+   * Fetches the current logged-in user profile, converting snake_case fields.
    */
   getMe: async (): Promise<UserProfile> => {
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    
-    const token = authStore.getAccessToken();
-    if (!token) throw new Error('Not authenticated');
-
-    // Return dummy data based on the mock token
-    if (token === 'mock-access-token-contributor') {
-      return {
-        id: 2,
-        email: 'contributor@example.com',
-        firstName: 'Wanjiku',
-        lastName: 'Kamau',
-        phone: '+254700000000',
-        isContributor: true,
-      };
-    }
-
+    const { data } = await apiClient.get<any>('/api/v1/auth/me');
     return {
-      id: 1,
-      email: 'admin@example.com',
-      firstName: 'Admin',
-      lastName: 'User',
-      phone: '+254711111111',
-      isContributor: false,
+      id: data.id,
+      email: data.email,
+      firstName: data.first_name || data.firstName || '',
+      lastName: data.last_name || data.lastName || '',
+      phone: data.phone || data.phone_number || '',
+      isContributor: data.is_contributor !== undefined ? data.is_contributor : (data.isContributor || false),
     };
   },
 };

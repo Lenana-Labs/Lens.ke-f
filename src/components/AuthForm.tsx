@@ -3,10 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 const playfair = Playfair_Display({ subsets: ["latin"], style: ["italic", "normal"] });
 
 export default function AuthForm() {
+  const { login, register, isLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -50,9 +53,23 @@ export default function AuthForm() {
     return "Strong";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(isLogin ? "Logging in..." : "Signing up...");
+    try {
+      if (isLogin) {
+        await login({ email, password });
+        toast.success("Welcome back!", { description: "You have successfully logged in." });
+      } else {
+        await register({ firstName, lastName, phone, email, password });
+        toast.success("Welcome to Lens.ke!", { description: "Your contributor account has been created." });
+      }
+    } catch (err: any) {
+      console.error(err);
+      const errorMessage = err.response?.data?.detail || err.message || "An authentication error occurred. Please try again.";
+      toast.error(isLogin ? "Login Failed" : "Registration Failed", {
+        description: errorMessage,
+      });
+    }
   };
 
   return (
@@ -178,9 +195,14 @@ export default function AuthForm() {
 
           <button
             type="submit"
-            className="w-full py-3 mt-4 bg-[color:var(--color-primary)] text-white font-bold rounded-2xl hover:bg-[#1a553a] hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+            disabled={isLoading}
+            className="w-full py-3 mt-4 bg-[color:var(--color-primary)] text-white font-bold rounded-2xl hover:bg-[#1a553a] hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            {isLogin ? "Log In" : "Create Account"}
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              isLogin ? "Log In" : "Create Account"
+            )}
           </button>
         </form>
 
