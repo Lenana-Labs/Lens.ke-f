@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { UserProfile, LoginPayload, RegisterPayload } from '@/types/auth';
+import type { UserProfile, LoginPayload } from '@/types/auth';
 import { authApi } from '@/lib/api/auth';
 import { useRouter } from 'next/navigation';
 
@@ -9,7 +9,6 @@ interface AuthContextType {
   user: UserProfile | null;
   isLoading: boolean;
   login: (payload: LoginPayload) => Promise<void>;
-  register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -31,6 +30,7 @@ export function AuthProvider({
     const handleLogoutEvent = () => {
       setUser(null);
       document.cookie = 'session_active=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      // router.push('/login');
       router.push('/auth');
     };
     window.addEventListener('auth:logout', handleLogoutEvent);
@@ -44,6 +44,8 @@ export function AuthProvider({
       return;
     }
 
+    // Otherwise, check if session_active cookie exists (meaning they might have tokens in-memory)
+    // For mock purposes, we'll just check if authStore has an access token in the `authApi.getMe` call
     const fetchUser = async () => {
       try {
         const profile = await authApi.getMe();
@@ -51,15 +53,13 @@ export function AuthProvider({
         document.cookie = 'session_active=true; path=/; max-age=86400; SameSite=Lax';
       } catch (err) {
         setUser(null);
-        document.cookie = 'session_active=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-        router.push('/auth');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchUser();
-  }, [initialUser, router]);
+  }, [initialUser]);
 
   const login = async (payload: LoginPayload) => {
     setIsLoading(true);
@@ -68,19 +68,6 @@ export function AuthProvider({
       const profile = await authApi.getMe();
       setUser(profile);
       // Set non-sensitive session signal for middleware
-      document.cookie = 'session_active=true; path=/; max-age=86400; SameSite=Lax';
-      router.push('/contributor');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const register = async (payload: RegisterPayload) => {
-    setIsLoading(true);
-    try {
-      await authApi.register(payload);
-      const profile = await authApi.getMe();
-      setUser(profile);
       document.cookie = 'session_active=true; path=/; max-age=86400; SameSite=Lax';
       router.push('/contributor');
     } finally {
@@ -97,7 +84,7 @@ export function AuthProvider({
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

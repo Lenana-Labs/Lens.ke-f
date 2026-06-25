@@ -1,17 +1,18 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
-import { useAuth } from "@/context/AuthContext";
-import { toast } from "sonner";
+import { authStore } from "../lib/api/authStore";
 
 const playfair = Playfair_Display({ subsets: ["latin"], style: ["italic", "normal"] });
 
 export default function AuthForm() {
-  const { login, register, isLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const router = useRouter();
 
   // Form states
   const [firstName, setFirstName] = useState("");
@@ -22,6 +23,7 @@ export default function AuthForm() {
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
+    setErrorMsg("");
   };
 
   // Password strength logic
@@ -55,22 +57,89 @@ export default function AuthForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg("");
+    
+    // 1. Choose the correct endpoint from your .env file
+    const endpoint = isLogin 
+      ? process.env.NEXT_PUBLIC_LOGIN 
+      : process.env.NEXT_PUBLIC_REGISTER;
+      
+    // Get the base URL from .env, default to an empty string if not provided
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
+
+    if (!endpoint) {
+      console.error("Missing API endpoint in environment variables!");
+      return;
+    }
+    const fullUrl = `${baseUrl}${endpoint}`;
+
     try {
+      let payload;
       if (isLogin) {
-        await login({ email, password });
-        toast.success("Welcome back!", { description: "You have successfully logged in." });
+        payload = { email, password };
       } else {
-        await register({ firstName, lastName, phone, email, password });
-        toast.success("Welcome to Lens.ke!", { description: "Your contributor account has been created." });
+        payload = { first_name: firstName, last_name: lastName, email, password, phone_number: phone };
       }
-    } catch (err: any) {
-      console.error(err);
-      const errorMessage = err.response?.data?.detail || err.message || "An authentication error occurred. Please try again.";
-      toast.error(isLogin ? "Login Failed" : "Registration Failed", {
-        description: errorMessage,
+
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
+
+      if (!response.ok && response.status >= 400 && response.status < 500) {
+        // Generic client-safe error message
+        setErrorMsg(isLogin ? "Invalid email or password." : "Failed to create account. Please check your details.");
+      }
+
+      // Check if the response is actually JSON before parsing to prevent crashes
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json();
+        if (response.ok) {
+          console.log(isLogin ? "Login successful:" : "Registration successful:", data);
+          
+          // Handle different possible token keys from Django (token, access_token, or access)
+          const token = data.token || data.access_token || data.access;
+          
+          if (isLogin && token) {
+            // Note: You should also pass this token to your `authStore` from src/lib/api/authStore.ts here
+            // authStore.setTokens(token, data.refreshToken || data.refresh);
+            
+            // Pass this token to your authStore so the Axios interceptor can use it for uploads!
+            authStore.setTokens(token, data.refreshToken || data.refresh || "");
+
+            // Set the session cookie that your proxy.ts middleware relies on to unlock protected routes
+            // SECURITY WARNING: document.cookie cannot set HttpOnly flags. 
+            // Consider moving this login fetch to a Next.js Server Action to enable HttpOnly tokens.
+            const isProd = process.env.NODE_ENV === 'production';
+            document.cookie = `session_active=true; path=/; max-age=${data.expires_in || 86400}; SameSite=Lax${isProd ? '; Secure' : ''}`;
+            document.cookie = `access_token=${token}; path=/; max-age=${data.expires_in || 86400}; SameSite=Lax${isProd ? '; Secure' : ''}`;
+            
+            // Redirect to the dashboard
+            router.push("/contributor");
+          }
+        } else {
+          console.error("Authentication failed:", data);
+        }
+      } else {
+        // The server returned something that isn't JSON (like a 404 HTML page)
+        const textData = await response.text();
+        console.error(`Server responded with non-JSON format (${response.status}):`, textData);
+        setErrorMsg("An unexpected server error occurred.");
+      }
+    } catch (error) {
+      console.error("A network error occurred:", error);
+      setErrorMsg("Network error. Please check your connection.");
     }
   };
+
+
+
+
 
   return (
     <div className="w-full max-w-md mx-auto relative z-10 animate-fade-in-up">
@@ -85,6 +154,14 @@ export default function AuthForm() {
           <p className="text-gray-600 text-sm font-medium">
             {isLogin ? "Enter your details to access your account." : "Create an account to curate your African visual journey."}
           </p>
+          
+          {/* Error Message Display */}
+          {errorMsg && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-left animate-fade-in">
+              <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <p className="text-sm text-red-600 font-medium">{errorMsg}</p>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -195,14 +272,9 @@ export default function AuthForm() {
 
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full py-3 mt-4 bg-[color:var(--color-primary)] text-white font-bold rounded-2xl hover:bg-[#1a553a] hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full py-3 mt-4 bg-[color:var(--color-primary)] text-white font-bold rounded-2xl hover:bg-[#1a553a] hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
           >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              isLogin ? "Log In" : "Create Account"
-            )}
+            {isLogin ? "Log In" : "Create Account"}
           </button>
         </form>
 

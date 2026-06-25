@@ -5,9 +5,9 @@ import axios, {
 } from 'axios';
 import { authStore } from './authStore';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 if (!BASE_URL) {
-  throw new Error('NEXT_PUBLIC_API_BASE_URL is not set. Check .env.local.');
+  throw new Error('NEXT_PUBLIC_BASE_URL is not set. Check .env.local.');
 }
 
 export const apiClient: AxiosInstance = axios.create({

@@ -8,6 +8,7 @@ import { useCart } from "../context/CartContext";
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { totalItems, toggleDrawer } = useCart();
   const router = useRouter();
 
@@ -27,9 +28,34 @@ export default function Navbar() {
     // Check immediately in case page loads already scrolled down
     handleScroll();
 
+    // Check user's authentication status on mount
+    const checkAuthStatus = () => {
+      const hasToken = document.cookie.includes('access_token=') || document.cookie.includes('session_active=true');
+      setIsLoggedIn(hasToken);
+    };
+    checkAuthStatus();
+
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
+      const endpoint = process.env.NEXT_PUBLIC_LOGOUT || "/api/v1/auth/logout";
+      
+      await fetch(`${baseUrl}${endpoint}`, { method: 'POST' });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      // Clear the authentication cookies
+      document.cookie = "session_active=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      setIsLoggedIn(false);
+      router.push("/");
+      router.refresh();
+    }
+  };
 
   return (
     <nav className={`fixed top-0 w-full z-50 h-20 transition-all duration-300 ${isScrolled ? "bg-white shadow-sm border-b border-gray-100" : "bg-transparent"}`}>
@@ -95,9 +121,15 @@ export default function Navbar() {
             </div>
           </div>
 
-          <Link href="/auth" className="text-[color:var(--color-text)] font-medium hover:text-[color:var(--color-primary)] transition-colors">
-            Log In
-          </Link>
+          {isLoggedIn ? (
+            <button onClick={handleLogout} className="text-[color:var(--color-text)] font-medium hover:text-[color:var(--color-primary)] transition-colors">
+              Log Out
+            </button>
+          ) : (
+            <Link href="/auth" className="text-[color:var(--color-text)] font-medium hover:text-[color:var(--color-primary)] transition-colors">
+              Log In
+            </Link>
+          )}
           
           <button 
             onClick={toggleDrawer}
